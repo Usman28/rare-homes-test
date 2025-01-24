@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>File Upload with Progress and Error Handling</title>
+  <style>
+    #progressContainer {
+      width: 100%;
+      background-color: #f3f3f3;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+      height: 25px;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background-color: #4caf50;
+      text-align: center;
+      line-height: 25px;
+      color: white;
+      transition: width 0.4s ease;
+    }
+    #error {
+      color: red;
+      margin-top: 10px;
+    }
+    #success {
+      color: green;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>File Upload with Progress and Error Handling</h1>
+  <input type="file" id="fileInput" />
+  <button onclick="uploadFile()">Upload</button>
+
+  <div id="progressContainer">
+    <div id="progressBar">0%</div>
+  </div>
+  <div id="error"></div>
+  <div id="success"></div>
+
+  <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+  <script>
+    const socket = io('http://localhost:3000');
+
+    const progressBar = document.getElementById('progressBar');
+    const errorDiv = document.getElementById('error');
+    const successDiv = document.getElementById('success');
+
+    socket.on('connect', () => {
+      console.log('Connected to WebSocket with ID:', socket.id);
+    });
+
+    socket.on('uploadProgress', (data) => {
+      progressBar.style.width = `${data.progress}%`;
+      progressBar.innerText = `${data.progress}%`;
+    });
+
+    socket.on('uploadError', (data) => {
+      errorDiv.innerText = `Upload Error: ${data.message}`;
+      progressBar.style.backgroundColor = 'red';
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Disconnected from WebSocket');
+    });
+
+    async function uploadFile() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Reset UI elements
+      progressBar.style.width = '0%';
+      progressBar.innerText = '0%';
+      progressBar.style.backgroundColor = '#4caf50';
+      errorDiv.innerText = '';
+      successDiv.innerText = '';
+
+      try {
+        const response = await fetch('http://localhost:3000/uploads/file', {
+          method: 'POST',
+          headers: {
+            'socket-id': socket.id, // Send socket ID in headers
+          },
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          successDiv.innerText = data.message;
+        } else {
+          // Handle HTTP errors
+          errorDiv.innerText = `Error: ${data.message}`;
+          progressBar.style.backgroundColor = 'red';
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        errorDiv.innerText = 'An unexpected error occurred during the upload.';
+        progressBar.style.backgroundColor = 'red';
+      }
+    }
+  </script>
+</body>
+</html>
